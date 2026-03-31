@@ -3,6 +3,11 @@ using System.Net.Http.Json;
 
 namespace Front_EndAPI.Services;
 
+// ============================================================
+// AUTH SERVICE
+// ============================================================
+// Handles login and logout functionality
+// Makes API calls to the backend and updates the authentication state
 public class AuthService
 {
     private readonly HttpClient _http;
@@ -15,10 +20,16 @@ public class AuthService
         _authStateProvider = authStateProvider;
     }
 
+    // ============================================================
+    // LOGIN METHOD
+    // ============================================================
+    // Sends username/password to backend API
+    // If successful, saves the JWT token and updates auth state
     public async Task<bool> Login(string username, string password)
     {
         try
         {
+            // Call backend login endpoint
             var response = await _http.PostAsJsonAsync("api/Auth/login", new
             {
                 Username = username,
@@ -31,6 +42,7 @@ public class AuthService
 
                 if (result?.Token != null)
                 {
+                    // Save token and notify app that user is authenticated
                     await SetToken(result.Token);
                     ((CustomAuthStateProvider)_authStateProvider).NotifyUserAuthentication(result.Token);
                     return true;
@@ -45,6 +57,10 @@ public class AuthService
         }
     }
 
+    // ============================================================
+    // LOGOUT METHOD
+    // ============================================================
+    // Removes the token and updates auth state to logged out
     public async Task Logout()
     {
         await RemoveToken();

@@ -9,9 +9,13 @@ public class IndexBase : ComponentBase
     // ============================================================
     // DEPENDENCY INJECTION
     // ============================================================
+    // [Inject] tells Blazor to automatically provide these services when the component loads
+
+    // HttpClient: Used to make API calls to the backend (already configured with auth token)
     [Inject]
     protected HttpClient Http { get; set; } = default!;
 
+    // AuthStateProvider: Gives us access to authentication info (token, user claims)
     [Inject]
     protected AuthenticationStateProvider AuthStateProvider { get; set; } = default!;
 
@@ -38,6 +42,8 @@ public class IndexBase : ComponentBase
     // ============================================================
     // AUTHENTICATION
     // ============================================================
+    // Gets the current JWT token from the auth provider
+    // Used to display the token on the page for learning purposes
     protected async Task LoadAuthInfo()
     {
         if (AuthStateProvider is CustomAuthStateProvider customProvider)
@@ -50,6 +56,9 @@ public class IndexBase : ComponentBase
     // ============================================================
     // API CALLS
     // ============================================================
+
+    // GET request: Loads all characters from the backend
+    // AuthHttpMessageHandler automatically adds the JWT token to this request
     protected async Task LoadCharacters()
     {
         IsLoading = true;
@@ -68,6 +77,8 @@ public class IndexBase : ComponentBase
         }
     }
 
+    // POST request: Creates a new character by sending data to the backend
+    // AuthHttpMessageHandler automatically adds the JWT token to this request
     protected async Task HandleCreateCharacter()
     {
         IsCreating = true;
