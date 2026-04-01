@@ -29,6 +29,7 @@ public class IndexBase : ComponentBase
     protected bool IsLoading { get; set; }
     protected string CreateMessage { get; set; } = string.Empty;
     protected bool CreateSuccess { get; set; }
+    protected bool ShowCreateForm { get; set; } = false;
 
     // ============================================================
     // LIFECYCLE - No explanation needed, just load auth info and characters when the component initializes

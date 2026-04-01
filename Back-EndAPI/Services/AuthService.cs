@@ -28,10 +28,68 @@ public class AuthService
 
     public string? LoginSimple(string username, string password)
     {
-        if (username != "Admin" || password != "password")
-            return null;
+        // Mock User 1: Admin - Full permissions
+        if (username == "Admin" && password == "password")
+        {
+            return GenerateTokenForAdmin();
+        }
 
-        return GenerateTokenSimple(username);
+        // Mock User 2: User - Limited permissions
+        if (username == "User" && password == "password")
+        {
+            return GenerateTokenForUser();
+        }
+
+        return null;
+    }
+
+    // Admin gets all permissions
+    private string GenerateTokenForAdmin()
+    {
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_key));
+        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+        var claims = new List<Claim>
+        {
+            new Claim(ClaimTypes.Name, "Admin"),
+            new Claim(ClaimTypes.NameIdentifier, "1"),
+            new Claim(ClaimTypes.Role, "Administrator"),
+            new Claim("permission", "character.create"),
+            new Claim("permission", "character.edit"),
+            new Claim("permission", "character.delete"),
+            new Claim("permission", "character.view")
+        };
+
+        var token = new JwtSecurityToken(
+            claims: claims,
+            expires: DateTime.Now.AddHours(1),
+            signingCredentials: creds
+        );
+
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
+    // Regular user gets only view permission
+    private string GenerateTokenForUser()
+    {
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_key));
+        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+        var claims = new List<Claim>
+        {
+            new Claim(ClaimTypes.Name, "User"),
+            new Claim(ClaimTypes.NameIdentifier, "2"),
+            new Claim(ClaimTypes.Role, "Regular User"),
+            new Claim("permission", "character.view")
+        };
+
+        var token = new JwtSecurityToken(
+            claims: claims,
+            expires: DateTime.Now.AddHours(1),
+            signingCredentials: creds
+        );
+
+        return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
     private string GenerateTokenSimple(string username)

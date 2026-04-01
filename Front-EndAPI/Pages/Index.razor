@@ -3,7 +3,7 @@
 @inherits IndexBase
 
 <div class="row">
-    <div class="col-md-6">
+    <div class="col-md-12">
         <h3>Authentication Info</h3>
         <AuthorizeView>
             <Authorized>
@@ -12,22 +12,70 @@
                         <h5 class="card-title text-success">✓ Authenticated</h5>
                         <hr />
                         <p><strong>Username:</strong> @context.User.Identity?.Name</p>
-                        <p><strong>Authentication Type:</strong> @context.User.Identity?.AuthenticationType</p>
+                        <p><strong>Role:</strong> @(context.User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Role)?.Value ?? "None")</p>
 
-                        <h6 class="mt-3">Claims:</h6>
-                        <ul class="list-group list-group-flush">
-                            @foreach (var claim in context.User.Claims)
-                            {
-                                <li class="list-group-item">
-                                    <strong>@claim.Type:</strong> @claim.Value
-                                </li>
+                        <h6 class="mt-3">Permissions (from JWT Token):</h6>
+                        <div class="alert alert-info">
+                            @{
+                                var permissions = context.User.Claims
+                                    .Where(c => c.Type == "permission")
+                                    .Select(c => c.Value)
+                                    .ToList();
                             }
-                        </ul>
+                            @if (permissions.Any())
+                            {
+                                <ul class="mb-0">
+                                    @foreach (var permission in permissions)
+                                    {
+                                        <li><strong>@permission</strong></li>
+                                    }
+                                </ul>
+                            }
+                            else
+                            {
+                                <p class="mb-0">No permissions assigned</p>
+                            }
+                        </div>
+
+                        <h6 class="mt-3">Permission-Based Actions:</h6>
+                        <div class="d-flex flex-wrap gap-2">
+                            @* View Button - Always enabled if authenticated *@
+                            <button class="btn btn-primary" 
+                                    disabled="@(!context.User.HasClaim("permission", "character.view"))"
+                                    @onclick="LoadCharacters">
+                                <i class="bi bi-eye"></i> View Characters
+                            </button>
+
+                            @* Create Button - Requires character.create permission *@
+                            <button class="btn btn-success" 
+                                    disabled="@(!context.User.HasClaim("permission", "character.create"))"
+                                    @onclick="() => ShowCreateForm = !ShowCreateForm">
+                                <i class="bi bi-plus-circle"></i> Create Character
+                            </button>
+
+                            @* Edit Button - Requires character.edit permission *@
+                            <button class="btn btn-warning" 
+                                    disabled="@(!context.User.HasClaim("permission", "character.edit"))">
+                                <i class="bi bi-pencil"></i> Edit Character
+                            </button>
+
+                            @* Delete Button - Requires character.delete permission *@
+                            <button class="btn btn-danger" 
+                                    disabled="@(!context.User.HasClaim("permission", "character.delete"))">
+                                <i class="bi bi-trash"></i> Delete Character
+                            </button>
+                        </div>
+
+                        <div class="mt-3">
+                            <small class="text-muted">
+                                <i class="bi bi-info-circle"></i> Grayed-out buttons indicate you don't have the required permission.
+                            </small>
+                        </div>
 
                         @if (!string.IsNullOrEmpty(Token))
                         {
                             <div class="mt-3">
-                                <h6>JWT Token:</h6>
+                                <h6>JWT Token (Decoded Above):</h6>
                                 <div class="alert alert-secondary" style="word-break: break-all; font-size: 0.8rem;">
                                     @Token
                                 </div>
@@ -44,76 +92,72 @@
             </NotAuthorized>
         </AuthorizeView>
 
-        <AuthorizeView Context="auth">
-            @if (auth.User.HasClaim("permission", "character.create"))
-            {
-                <div class="card mb-4">
-                    <div class="card-body">
-                        <h5 class="card-title">✨ Create New Character</h5>
-                        <hr />
+        @if (ShowCreateForm)
+        {
+            <AuthorizeView Context="auth">
+                @if (auth.User.HasClaim("permission", "character.create"))
+                {
+                    <div class="card mb-4">
+                        <div class="card-body">
+                            <h5 class="card-title">✨ Create New Character</h5>
+                            <hr />
 
-                        @if (!string.IsNullOrEmpty(CreateMessage))
-                        {
-                            <div class="alert @(CreateSuccess ? "alert-success" : "alert-danger")" role="alert">
-                                @CreateMessage
-                            </div>
-                        }
+                            @if (!string.IsNullOrEmpty(CreateMessage))
+                            {
+                                <div class="alert @(CreateSuccess ? "alert-success" : "alert-danger")" role="alert">
+                                    @CreateMessage
+                                </div>
+                            }
 
-                        <EditForm Model="NewCharacter" OnValidSubmit="HandleCreateCharacter">
-                            <DataAnnotationsValidator />
+                            <EditForm Model="NewCharacter" OnValidSubmit="HandleCreateCharacter">
+                                <DataAnnotationsValidator />
 
-                            <div class="mb-3">
-                                <label class="form-label">Name</label>
-                                <InputText class="form-control" @bind-Value="NewCharacter.Name" />
-                                <ValidationMessage For="@(() => NewCharacter.Name)" />
-                            </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Name</label>
+                                    <InputText class="form-control" @bind-Value="NewCharacter.Name" />
+                                    <ValidationMessage For="@(() => NewCharacter.Name)" />
+                                </div>
 
-                            <div class="mb-3">
-                                <label class="form-label">Class</label>
-                                <InputSelect class="form-control" @bind-Value="NewCharacter.Class">
-                                    <option value="">-- Select a Class --</option>
-                                    <option value="Warrior">Warrior</option>
-                                    <option value="Mage">Mage</option>
-                                    <option value="Archer">Archer</option>
-                                    <option value="Rogue">Rogue</option>
-                                </InputSelect>
-                                <ValidationMessage For="@(() => NewCharacter.Class)" />
-                            </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Class</label>
+                                    <InputSelect class="form-control" @bind-Value="NewCharacter.Class">
+                                        <option value="">-- Select a Class --</option>
+                                        <option value="Warrior">Warrior</option>
+                                        <option value="Mage">Mage</option>
+                                        <option value="Archer">Archer</option>
+                                        <option value="Rogue">Rogue</option>
+                                    </InputSelect>
+                                    <ValidationMessage For="@(() => NewCharacter.Class)" />
+                                </div>
 
-                            <div class="mb-3">
-                                <label class="form-label">Level</label>
-                                <InputNumber class="form-control" @bind-Value="NewCharacter.Level" />
-                                <ValidationMessage For="@(() => NewCharacter.Level)" />
-                            </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Level</label>
+                                    <InputNumber class="form-control" @bind-Value="NewCharacter.Level" />
+                                    <ValidationMessage For="@(() => NewCharacter.Level)" />
+                                </div>
 
-                            <div class="mb-3">
-                                <label class="form-label">Health</label>
-                                <InputNumber class="form-control" @bind-Value="NewCharacter.Health" />
-                            </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Health</label>
+                                    <InputNumber class="form-control" @bind-Value="NewCharacter.Health" />
+                                </div>
 
-                            <div class="mb-3">
-                                <label class="form-label">Mana</label>
-                                <InputNumber class="form-control" @bind-Value="NewCharacter.Mana" />
-                            </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Mana</label>
+                                    <InputNumber class="form-control" @bind-Value="NewCharacter.Mana" />
+                                </div>
 
-                            <button type="submit" class="btn btn-success w-100" disabled="@IsCreating">
-                                @(IsCreating ? "Creating..." : "Create Character")
-                            </button>
-                        </EditForm>
+                                <button type="submit" class="btn btn-success w-100" disabled="@IsCreating">
+                                    @(IsCreating ? "Creating..." : "Create Character")
+                                </button>
+                            </EditForm>
+                        </div>
                     </div>
-                </div>
-            }
-            else
-            {
-                <div class="alert alert-info">
-                    <strong>🔒 Create Permission Required</strong>
-                    <p class="mb-0">You need "users.create" permission.</p>
-                </div>
-            }
-        </AuthorizeView>
+                }
+            </AuthorizeView>
+        }
     </div>
 
-    <div class="col-md-6">
+    <div class="col-md-12 mt-4">
         <h3>Characters</h3>
 
         @if (Characters == null)
@@ -126,32 +170,24 @@
         }
         else
         {
-            foreach (var character in Characters)
-            {
-                <div class="card mb-3">
-                    <div class="card-body">
-                        <h5 class="card-title">@character.Name</h5>
-                        <hr />
-                        <p><strong>ID:</strong> @character.Id</p>
-                        <p><strong>Class:</strong> @character.Class</p>
-                        <p><strong>Level:</strong> @character.Level</p>
-                        <p><strong>Health:</strong> @character.Health</p>
-                        <p><strong>Mana:</strong> @character.Mana</p>
+            <div class="row">
+                @foreach (var character in Characters)
+                {
+                    <div class="col-md-4 mb-3">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">@character.Name</h5>
+                                <hr />
+                                <p><strong>ID:</strong> @character.Id</p>
+                                <p><strong>Class:</strong> @character.Class</p>
+                                <p><strong>Level:</strong> @character.Level</p>
+                                <p><strong>Health:</strong> @character.Health</p>
+                                <p><strong>Mana:</strong> @character.Mana</p>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            }
+                }
+            </div>
         }
-
-        <button class="btn btn-primary" @onclick="LoadCharacters" disabled="@IsLoading">
-            @if (IsLoading)
-            {
-                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                <span>Loading...</span>
-            }
-            else
-            {
-                <span>Reload Characters</span>
-            }
-        </button>
     </div>
 </div>
