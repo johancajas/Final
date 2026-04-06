@@ -32,4 +32,7 @@ public partial class StoreOrderItem
     [ForeignKey("Orderid")]
     [InverseProperty("StoreOrderItems")]
     public virtual StoreOrder? Order { get; set; }
+
+    [InverseProperty("Orderitem")]
+    public virtual ICollection<ShipmentReceiptItem> ShipmentReceiptItems { get; set; } = new List<ShipmentReceiptItem>();
 }

@@ -148,6 +148,12 @@ public partial class AppDbContext : DbContext
 
     public virtual DbSet<Surname> Surnames { get; set; }
 
+    public virtual DbSet<ShipmentReceipt> ShipmentReceipts { get; set; }
+
+    public virtual DbSet<ShipmentReceiptItem> ShipmentReceiptItems { get; set; }
+
+    public virtual DbSet<InventoryTransaction> InventoryTransactions { get; set; }
+
     public virtual DbSet<Track> Tracks { get; set; }
 
     public virtual DbSet<UserElectionRole> UserElectionRoles { get; set; }

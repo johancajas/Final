@@ -78,6 +78,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<CharacterService>();
 builder.Services.AddScoped<PurchaseOrderService>();
+builder.Services.AddScoped<ShipmentService>();
 
 var app = builder.Build();
 
