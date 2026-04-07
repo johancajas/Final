@@ -22,9 +22,6 @@ public partial class StoreOrder
     [InverseProperty("Order")]
     public virtual ICollection<StoreOrderItem> StoreOrderItems { get; set; } = new List<StoreOrderItem>();
 
-    [InverseProperty("Order")]
-    public virtual ICollection<ShipmentReceipt> ShipmentReceipts { get; set; } = new List<ShipmentReceipt>();
-
     [ForeignKey("Supplierid")]
     [InverseProperty("StoreOrders")]
     public virtual StoreSupplier? Supplier { get; set; }

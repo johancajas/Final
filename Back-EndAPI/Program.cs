@@ -68,17 +68,22 @@ builder.Services.AddCors(options =>
               .AllowAnyMethod());
 });
 
-// REGISTER EF CORE
+// REGISTER EF CORE - Main AppDbContext
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(
         builder.Configuration.GetConnectionString("DefaultConnection")
     ));
 
-// REGISTER YOUR HERO SERVICE
+// REGISTER EF CORE - Warehouse DbContext (for purchase orders and shipments)
+builder.Services.AddDbContext<WarehouseDbContext>(options =>
+    options.UseNpgsql(
+        builder.Configuration.GetConnectionString("DefaultConnection")
+    ));
+
+// REGISTER YOUR SERVICES
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<CharacterService>();
 builder.Services.AddScoped<PurchaseOrderService>();
-builder.Services.AddScoped<ShipmentService>();
 
 var app = builder.Build();
 

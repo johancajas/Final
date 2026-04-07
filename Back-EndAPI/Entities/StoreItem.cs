@@ -25,7 +25,4 @@ public partial class StoreItem
 
     [InverseProperty("Item")]
     public virtual ICollection<StoreOrderItem> StoreOrderItems { get; set; } = new List<StoreOrderItem>();
-
-    [InverseProperty("Item")]
-    public virtual ICollection<InventoryTransaction> InventoryTransactions { get; set; } = new List<InventoryTransaction>();
 }

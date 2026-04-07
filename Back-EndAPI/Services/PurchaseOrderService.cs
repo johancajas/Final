@@ -1,5 +1,5 @@
 using Back_EndAPI.Data;
-using Back_EndAPI.Entities;
+using Back_EndAPI.Entities.Warehouse;
 using ClassLibrary.DTOs.PurchaseOrder;
 using Microsoft.EntityFrameworkCore;
 
@@ -7,9 +7,9 @@ namespace Back_EndAPI.Services;
 
 public class PurchaseOrderService
 {
-    private readonly AppDbContext _context;
+    private readonly WarehouseDbContext _context;
 
-    public PurchaseOrderService(AppDbContext context)
+    public PurchaseOrderService(WarehouseDbContext context)
     {
         _context = context;
     }
@@ -17,57 +17,78 @@ public class PurchaseOrderService
     // ============================================================
     // CREATE PURCHASE ORDER
     // ============================================================
+    /// <summary>
+    /// Creates a new purchase order with proper validation and business rules
+    /// </summary>
     public async Task<PurchaseOrderResponse> CreatePurchaseOrderAsync(CreatePurchaseOrderRequest request)
     {
-        // Validate supplier exists
-        var supplier = await _context.StoreSuppliers
-            .FirstOrDefaultAsync(s => s.Id == request.SupplierId);
+        // Business Rule 1: Validate vendor exists
+        var vendor = await _context.Vendors
+            .FirstOrDefaultAsync(v => v.Id == request.VendorId);
 
-        if (supplier == null)
+        if (vendor == null)
         {
-            throw new InvalidOperationException($"Supplier with ID {request.SupplierId} not found");
+            throw new InvalidOperationException($"Vendor with ID {request.VendorId} not found");
         }
 
-        // Validate all items exist
-        var itemIds = request.OrderItems.Select(oi => oi.ItemId).ToList();
-        var items = await _context.StoreItems
-            .Where(i => itemIds.Contains(i.Id))
+        // Business Rule 2: Validate all product IDs exist
+        var productIds = request.Items.Select(i => i.ProductId).ToList();
+        var existingProducts = await _context.Items
+            .Where(i => productIds.Contains(i.SkuNumber))
+            .Select(i => i.SkuNumber)
             .ToListAsync();
 
-        if (items.Count != itemIds.Count)
+        var missingProducts = productIds.Except(existingProducts).ToList();
+        if (missingProducts.Any())
         {
-            var missingIds = itemIds.Except(items.Select(i => i.Id));
-            throw new InvalidOperationException($"Items not found: {string.Join(", ", missingIds)}");
+            throw new InvalidOperationException($"Products not found: {string.Join(", ", missingProducts)}");
         }
 
-        // Create the purchase order
-        var order = new StoreOrder
+        // Business Rule 3: Validate no duplicate products in the order
+        var duplicates = request.Items
+            .GroupBy(i => i.ProductId)
+            .Where(g => g.Count() > 1)
+            .Select(g => g.Key)
+            .ToList();
+
+        if (duplicates.Any())
         {
-            Supplierid = request.SupplierId,
-            Datepurchased = request.DatePurchased
+            throw new InvalidOperationException($"Duplicate product IDs found: {string.Join(", ", duplicates)}. Each product can only appear once per order.");
+        }
+
+        // Business Rule 4: Calculate expected total cost
+        decimal expectedTotalCost = request.Items.Sum(i => i.Quantity * i.CostPerUnit);
+
+        // Create the purchase order with status CREATED
+        var purchaseOrder = new PurchaseOrder
+        {
+            DateOrdered = request.DateOrdered,
+            Vendorid = request.VendorId,
+            ExpectedTotalCost = (int)expectedTotalCost, // Assuming integer cents
+            Status = "CREATED" // Business Rule: Initial status is CREATED
         };
 
-        _context.StoreOrders.Add(order);
+        _context.PurchaseOrders.Add(purchaseOrder);
         await _context.SaveChangesAsync(); // Save to get the order ID
 
-        // Create order items
-        foreach (var itemRequest in request.OrderItems)
+        // Create ordered items
+        foreach (var itemRequest in request.Items)
         {
-            var orderItem = new StoreOrderItem
+            var orderedItem = new OrderedItem
             {
-                Orderid = order.Id,
-                Itemid = itemRequest.ItemId,
-                Quantity = itemRequest.Quantity,
-                Actualprice = itemRequest.ActualPrice
+                PurchaseId = purchaseOrder.Id,
+                SkuNumber = itemRequest.ProductId,
+                Qty = itemRequest.Quantity,
+                CostPerUnit = itemRequest.CostPerUnit
             };
 
-            _context.StoreOrderItems.Add(orderItem);
+            _context.OrderedItems.Add(orderedItem);
         }
 
         await _context.SaveChangesAsync();
 
-        // Return the created order with details
-        return await GetPurchaseOrderByIdAsync(order.Id);
+        // Return the created order with full details
+        return await GetPurchaseOrderByIdAsync(purchaseOrder.Id);
     }
 
     // ============================================================
@@ -75,35 +96,36 @@ public class PurchaseOrderService
     // ============================================================
     public async Task<PurchaseOrderResponse> GetPurchaseOrderByIdAsync(int orderId)
     {
-        var order = await _context.StoreOrders
-            .Include(o => o.Supplier)
-            .Include(o => o.StoreOrderItems)
-                .ThenInclude(oi => oi.Item)
+        var order = await _context.PurchaseOrders
+            .Include(o => o.Vendor)
+            .Include(o => o.OrderedItems)
+                .ThenInclude(oi => oi.SkuNumberNavigation)
             .FirstOrDefaultAsync(o => o.Id == orderId);
 
         if (order == null)
         {
-            throw new InvalidOperationException($"Order with ID {orderId} not found");
+            throw new InvalidOperationException($"Purchase order {orderId} not found");
         }
 
-        var orderItems = order.StoreOrderItems.Select(oi => new OrderItemResponse
+        var items = order.OrderedItems.Select(oi => new OrderedItemResponse
         {
-            OrderItemId = oi.Id,
-            ItemId = oi.Itemid ?? 0,
-            ItemName = oi.Item?.Itemname,
-            Quantity = oi.Quantity ?? 0,
-            ActualPrice = oi.Actualprice ?? 0,
-            LineTotal = (oi.Quantity ?? 0) * (oi.Actualprice ?? 0)
+            OrderedItemId = oi.Id,
+            ProductId = oi.SkuNumber ?? 0,
+            ProductName = oi.SkuNumberNavigation?.Name,
+            Quantity = oi.Qty,
+            CostPerUnit = oi.CostPerUnit,
+            LineTotal = oi.Qty * oi.CostPerUnit
         }).ToList();
 
         return new PurchaseOrderResponse
         {
             OrderId = order.Id,
-            SupplierId = order.Supplierid ?? 0,
-            SupplierName = order.Supplier?.Suppliername,
-            DatePurchased = order.Datepurchased ?? DateOnly.FromDateTime(DateTime.Now),
-            OrderItems = orderItems,
-            TotalAmount = orderItems.Sum(oi => oi.LineTotal)
+            VendorId = order.Vendorid ?? 0,
+            VendorName = order.Vendor?.Name,
+            DateOrdered = order.DateOrdered,
+            Status = order.Status,
+            Items = items,
+            ExpectedTotalCost = items.Sum(i => i.LineTotal)
         };
     }
 
@@ -112,29 +134,53 @@ public class PurchaseOrderService
     // ============================================================
     public async Task<List<PurchaseOrderResponse>> GetAllPurchaseOrdersAsync()
     {
-        var orders = await _context.StoreOrders
-            .Include(o => o.Supplier)
-            .Include(o => o.StoreOrderItems)
-                .ThenInclude(oi => oi.Item)
-            .OrderByDescending(o => o.Datepurchased)
+        var orders = await _context.PurchaseOrders
+            .Include(o => o.Vendor)
+            .Include(o => o.OrderedItems)
+                .ThenInclude(oi => oi.SkuNumberNavigation)
+            .OrderByDescending(o => o.DateOrdered)
             .ToListAsync();
 
         return orders.Select(order => new PurchaseOrderResponse
         {
             OrderId = order.Id,
-            SupplierId = order.Supplierid ?? 0,
-            SupplierName = order.Supplier?.Suppliername,
-            DatePurchased = order.Datepurchased ?? DateOnly.FromDateTime(DateTime.Now),
-            OrderItems = order.StoreOrderItems.Select(oi => new OrderItemResponse
+            VendorId = order.Vendorid ?? 0,
+            VendorName = order.Vendor?.Name,
+            DateOrdered = order.DateOrdered,
+            Status = order.Status,
+            Items = order.OrderedItems.Select(oi => new OrderedItemResponse
             {
-                OrderItemId = oi.Id,
-                ItemId = oi.Itemid ?? 0,
-                ItemName = oi.Item?.Itemname,
-                Quantity = oi.Quantity ?? 0,
-                ActualPrice = oi.Actualprice ?? 0,
-                LineTotal = (oi.Quantity ?? 0) * (oi.Actualprice ?? 0)
+                OrderedItemId = oi.Id,
+                ProductId = oi.SkuNumber ?? 0,
+                ProductName = oi.SkuNumberNavigation?.Name,
+                Quantity = oi.Qty,
+                CostPerUnit = oi.CostPerUnit,
+                LineTotal = oi.Qty * oi.CostPerUnit
             }).ToList(),
-            TotalAmount = order.StoreOrderItems.Sum(oi => (oi.Quantity ?? 0) * (oi.Actualprice ?? 0))
+            ExpectedTotalCost = order.OrderedItems.Sum(oi => oi.Qty * oi.CostPerUnit)
         }).ToList();
+    }
+
+    // ============================================================
+    // UPDATE PURCHASE ORDER STATUS
+    // ============================================================
+    public async Task UpdatePurchaseOrderStatusAsync(int orderId, string newStatus)
+    {
+        var order = await _context.PurchaseOrders.FindAsync(orderId);
+
+        if (order == null)
+        {
+            throw new InvalidOperationException($"Purchase order {orderId} not found");
+        }
+
+        // Validate status transition (you can add more rules here)
+        var validStatuses = new[] { "CREATED", "APPROVED", "ORDERED", "PARTIALLY_RECEIVED", "RECEIVED", "CANCELLED" };
+        if (!validStatuses.Contains(newStatus))
+        {
+            throw new InvalidOperationException($"Invalid status: {newStatus}");
+        }
+
+        order.Status = newStatus;
+        await _context.SaveChangesAsync();
     }
 }

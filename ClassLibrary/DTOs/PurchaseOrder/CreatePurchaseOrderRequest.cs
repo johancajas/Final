@@ -2,31 +2,37 @@ using System.ComponentModel.DataAnnotations;
 
 namespace ClassLibrary.DTOs.PurchaseOrder;
 
+/// <summary>
+/// Request DTO for creating a new purchase order
+/// </summary>
 public class CreatePurchaseOrderRequest
 {
-    [Required(ErrorMessage = "Supplier ID is required")]
-    [Range(1, int.MaxValue, ErrorMessage = "Supplier ID must be greater than 0")]
-    public int SupplierId { get; set; }
+    [Required(ErrorMessage = "Vendor ID is required")]
+    [Range(1, int.MaxValue, ErrorMessage = "Vendor ID must be greater than 0")]
+    public int VendorId { get; set; }
 
-    [Required(ErrorMessage = "Date purchased is required")]
-    public DateOnly DatePurchased { get; set; }
+    [Required(ErrorMessage = "Order date is required")]
+    public DateOnly DateOrdered { get; set; }
 
-    [Required(ErrorMessage = "At least one order item is required")]
-    [MinLength(1, ErrorMessage = "At least one order item is required")]
-    public List<CreateOrderItemRequest> OrderItems { get; set; } = new();
+    [Required(ErrorMessage = "At least one item is required")]
+    [MinLength(1, ErrorMessage = "Purchase order must contain at least one item")]
+    public List<CreateOrderedItemRequest> Items { get; set; } = new();
 }
 
-public class CreateOrderItemRequest
+/// <summary>
+/// Request DTO for an item in a purchase order
+/// </summary>
+public class CreateOrderedItemRequest
 {
-    [Required(ErrorMessage = "Item ID is required")]
-    [Range(1, int.MaxValue, ErrorMessage = "Item ID must be greater than 0")]
-    public int ItemId { get; set; }
+    [Required(ErrorMessage = "Product ID (SKU Number) is required")]
+    [Range(1, int.MaxValue, ErrorMessage = "Product ID must be greater than 0")]
+    public int ProductId { get; set; }
 
     [Required(ErrorMessage = "Quantity is required")]
-    [Range(1, int.MaxValue, ErrorMessage = "Quantity must be at least 1")]
+    [Range(1, int.MaxValue, ErrorMessage = "Quantity must be greater than 0")]
     public int Quantity { get; set; }
 
-    [Required(ErrorMessage = "Actual price is required")]
-    [Range(0.01, double.MaxValue, ErrorMessage = "Actual price must be greater than 0")]
-    public decimal ActualPrice { get; set; }
+    [Required(ErrorMessage = "Cost per unit is required")]
+    [Range(0.01, double.MaxValue, ErrorMessage = "Cost per unit must be greater than 0")]
+    public decimal CostPerUnit { get; set; }
 }

@@ -13,6 +13,8 @@ public partial class PurchaseOrder
 
     public int? ExpectedTotalCost { get; set; }
 
+    public string Status { get; set; } = "CREATED";
+
     public virtual ICollection<OrderedItem> OrderedItems { get; set; } = new List<OrderedItem>();
 
     public virtual ICollection<ReceivedShipment> ReceivedShipments { get; set; } = new List<ReceivedShipment>();
