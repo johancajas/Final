@@ -1,0 +1,23 @@
+### Test Inventory Endpoints
+# Change the port number if you're not using 5285
+
+### Get all inventory
+GET http://localhost:5285/api/inventory
+
+### Get inventory for specific product
+GET http://localhost:5285/api/inventory?productId=1
+
+### Get inventory for non-existent product (should return 404)
+GET http://localhost:5285/api/inventory?productId=99999
+
+###
+
+### Test Order Endpoints
+
+### Get order by ID
+GET http://localhost:5285/api/orders/1
+
+### Get non-existent order (should return 404)
+GET http://localhost:5285/api/orders/99999
+
+###
